@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChainProof — Blockchain Document Verification</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ░░ BACKGROUND GRID ░░ -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-orb orb1" aria-hidden="true"></div>
+  <div class="bg-orb orb2" aria-hidden="true"></div>
+
+  <!-- ░░ HEADER ░░ -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="14,2 26,8 26,20 14,26 2,20 2,8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <polygon points="14,7 21,11 21,17 14,21 7,17 7,11" stroke="currentColor" stroke-width="1" fill="none" opacity=".5"/>
+          <circle cx="14" cy="14" r="2.5" fill="currentColor"/>
+        </svg>
+        <span class="logo-text">ChainProof</span>
+      </div>
+      <nav class="header-nav">
+        <span class="nav-pill" id="networkBadge">
+          <span class="net-dot"></span>Simnet Live
+        </span>
+        <span class="nav-stat">Blocks: <strong id="headerBlockCount">0</strong></span>
+        <span class="nav-stat">Docs: <strong id="headerDocCount">0</strong></span>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ░░ HERO ░░ -->
+  <section class="hero">
+    <p class="hero-eyebrow">Immutable · Trustless · Open</p>
+    <h1 class="hero-title">
+      Document integrity,<br />
+      <em>sealed on-chain.</em>
+    </h1>
+    <p class="hero-sub">
+      Upload any file. Its SHA-256 fingerprint is hashed into a linked block,
+      timestamped, and stored locally — creating a tamper-proof audit trail you
+      can verify at any time.
+    </p>
+    <div class="hero-scroll-hint" aria-hidden="true">↓ start below</div>
+  </section>
+
+  <!-- ░░ MAIN WORKSPACE ░░ -->
+  <main class="workspace">
+
+    <!-- ── REGISTER PANEL ── -->
+    <section class="panel panel--register" aria-labelledby="reg-title">
+      <header class="panel-header">
+        <span class="panel-step">01</span>
+        <div>
+          <h2 id="reg-title" class="panel-title">Register Document</h2>
+          <p class="panel-desc">Hash a file and write its proof to the chain</p>
+        </div>
+      </header>
+
+      <div class="panel-body">
+        <!-- Drop zone -->
+        <label class="drop-zone" id="registerDrop" tabindex="0" aria-label="Upload file to register">
+          <input type="file" id="registerFileInput" class="sr-only" />
+          <div class="drop-inner" id="registerDropInner">
+            <div class="drop-icon">
+              <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+                <rect x="6" y="8" width="22" height="28" rx="3" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M14 8V5a2 2 0 0 1 2-2h4l6 6v3" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M20 3v6h6" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M12 20h14M12 25h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="drop-label"><strong>Drop any file here</strong></p>
+            <p class="drop-hint">PDF · DOCX · Images · ZIP — any format</p>
+          </div>
+        </label>
+
+        <!-- File info card -->
+        <div class="info-card hidden" id="registerFileCard">
+          <div class="info-card-row">
+            <span class="info-icon">📄</span>
+            <div class="info-text">
+              <span class="info-filename" id="regFileName">—</span>
+              <span class="info-meta" id="regFileMeta">—</span>
+            </div>
+            <button class="info-clear" id="registerClearBtn" aria-label="Clear file">✕</button>
+          </div>
+          <div class="hash-reveal" id="regHashReveal">
+            <span class="hash-label">SHA-256</span>
+            <span class="hash-value mono" id="regHashValue">Computing…</span>
+          </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="form-group">
+          <label class="form-label" for="regOwner">Owner / Issuer</label>
+          <input class="form-input" type="text" id="regOwner" placeholder="e.g. Anthropic Legal, John Doe" maxlength="80" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="regDesc">Description <span class="optional">optional</span></label>
+          <input class="form-input" type="text" id="regDesc" placeholder="e.g. Q4 2025 Audit Report" maxlength="120" />
+        </div>
+
+        <!-- Register button -->
+        <button class="btn btn--primary" id="registerBtn" disabled>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polygon points="8,1 15,5 15,11 8,15 1,11 1,5" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="5" x2="8" y2="11" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.5"/></svg>
+          Write Block to Chain
+        </button>
+
+        <!-- Toast feedback -->
+        <div class="toast hidden" id="registerToast"></div>
+      </div>
+    </section>
+
+    <!-- ── VERIFY PANEL ── -->
+    <section class="panel panel--verify" aria-labelledby="ver-title">
+      <header class="panel-header">
+        <span class="panel-step">02</span>
+        <div>
+          <h2 id="ver-title" class="panel-title">Verify Document</h2>
+          <p class="panel-desc">Prove a file's authenticity against the chain</p>
+        </div>
+      </header>
+
+      <div class="panel-body">
+        <!-- Drop zone -->
+        <label class="drop-zone drop-zone--verify" id="verifyDrop" tabindex="0" aria-label="Upload file to verify">
+          <input type="file" id="verifyFileInput" class="sr-only" />
+          <div class="drop-inner" id="verifyDropInner">
+            <div class="drop-icon">
+              <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+                <circle cx="18" cy="17" r="10" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M25 24l7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M14 17h8M18 13v8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="drop-label"><strong>Drop file to verify</strong></p>
+            <p class="drop-hint">We compute its hash and query the chain</p>
+          </div>
+        </label>
+
+        <!-- Verify file info -->
+        <div class="info-card hidden" id="verifyFileCard">
+          <div class="info-card-row">
+            <span class="info-icon">🔍</span>
+            <div class="info-text">
+              <span class="info-filename" id="verFileName">—</span>
+              <span class="info-meta" id="verFileMeta">—</span>
+            </div>
+            <button class="info-clear" id="verifyClearBtn" aria-label="Clear file">✕</button>
+          </div>
+          <div class="hash-reveal" id="verHashReveal">
+            <span class="hash-label">SHA-256</span>
+            <span class="hash-value mono" id="verHashValue">Computing…</span>
+          </div>
+        </div>
+
+        <!-- Manual hash -->
+        <div class="divider-or"><span>or paste hash directly</span></div>
+        <div class="form-group">
+          <label class="form-label" for="manualHashInput">SHA-256 Hash</label>
+          <textarea class="form-input form-textarea mono" id="manualHashInput" placeholder="a3f8c2…" rows="3" spellcheck="false"></textarea>
+        </div>
+
+        <!-- Verify button -->
+        <button class="btn btn--verify" id="verifyBtn" disabled>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Verify Authenticity
+        </button>
+
+        <!-- Result card -->
+        <div class="result-card hidden" id="verifyResult"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ░░ BLOCKCHAIN LEDGER ░░ -->
+  <section class="ledger-section" aria-labelledby="ledger-title">
+    <div class="ledger-header">
+      <h2 id="ledger-title" class="ledger-title">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><polygon points="9,1 17,5 17,13 9,17 1,13 1,5" stroke="currentColor" stroke-width="1.3"/></svg>
+        Blockchain Ledger
+      </h2>
+      <div class="ledger-controls">
+        <button class="ledger-btn" id="exportBtn" title="Export chain as JSON">Export JSON</button>
+        <button class="ledger-btn ledger-btn--danger" id="clearChainBtn" title="Clear all blocks">Clear Chain</button>
+      </div>
+    </div>
+
+    <div class="chain-container" id="chainContainer">
+      <div class="chain-empty" id="chainEmpty">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" opacity=".3"><polygon points="20,3 37,12 37,28 20,37 3,28 3,12" stroke="currentColor" stroke-width="1.5"/></svg>
+        <p>No blocks yet. Register a document to begin the chain.</p>
+      </div>
+      <div class="chain-blocks" id="chainBlocks"></div>
+    </div>
+  </section>
+
+  <!-- ░░ HOW IT WORKS ░░ -->
+  <section class="how-section">
+    <h2 class="how-title">How it works</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <span class="how-num">1</span>
+        <h3>SHA-256 Hashing</h3>
+        <p>Your file is read as raw bytes and passed through the browser's native Web Crypto API. The resulting 256-bit digest uniquely fingerprints the file — any byte change produces a completely different hash.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-num">2</span>
+        <h3>Block Construction</h3>
+        <p>A block is built containing the document hash, the previous block's hash, a timestamp, owner metadata, and an index. This is then hashed again to produce the unique block hash — chaining them immutably.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-num">3</span>
+        <h3>Chain Integrity</h3>
+        <p>Each block's <code>prevHash</code> points to the prior block's hash. Tampering with any block breaks every subsequent link — the chain becomes verifiably corrupt. Exported JSON can be re-validated offline.</p>
+      </div>
+      <div class="how-card">
+        <span class="how-num">4</span>
+        <h3>Verification</h3>
+        <p>To verify, re-upload the original file. Its SHA-256 is recomputed client-side and compared against every block in the chain. A match proves the document existed, unchanged, at registration time.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ FOOTER ░░ -->
+  <footer class="site-footer">
+    <p>ChainProof — All computation is client-side. No file data leaves your browser.</p>
+    <p class="footer-mono mono">SHA-256 · Web Crypto API · IndexedDB-backed localStorage</p>
+  </footer>
+
+  <script src="blockchain.js"></script>
+<script src="ui.js"></script>
+</body>
+<script src="blockchain.js"></script>
+<script src="ui.js"></script>
+</html>
