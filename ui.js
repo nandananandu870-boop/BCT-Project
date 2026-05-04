@@ -1,7 +1,5 @@
 'use strict';
 
-const db = window.chainDB;
-
 // ================= REGISTER =================
 const regInput = document.getElementById("registerFileInput");
 const regDrop = document.getElementById("registerDrop");
@@ -13,7 +11,7 @@ let currentHash = null;
 // Click to open file
 regDrop.addEventListener("click", () => regInput.click());
 
-// Drag and drop
+// Drag & drop
 regDrop.addEventListener("dragover", e => e.preventDefault());
 
 regDrop.addEventListener("drop", e => {
@@ -26,36 +24,47 @@ regInput.addEventListener("change", e => {
     handleFile(e.target.files[0]);
 });
 
-// Handle file
+// Generate hash
 async function handleFile(file) {
     if (!file) return;
 
     regHash.innerText = "Computing...";
 
-    const hash = await db.hashFile(file);
-    currentHash = hash;
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
+    currentHash = hash;
     regHash.innerText = hash;
+
     regBtn.disabled = false;
 }
 
-// Register block
+// Register block (BACKEND)
 regBtn.addEventListener("click", async () => {
     if (!currentHash) return;
 
     const owner = document.getElementById("regOwner").value;
     const desc = document.getElementById("regDesc").value;
 
-    const block = await db.addBlock({
-        docHash: currentHash,
-        fileName: "file",
-        fileSize: 0,
-        fileType: "",
-        owner,
-        description: desc
+    const res = await fetch("http://127.0.0.1:5000/add", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            docHash: currentHash,
+            owner: owner,
+            description: desc
+        })
     });
 
-    alert("✅ Block Added!\nBlock #" + block.index);
+    const data = await res.json();
+
+    alert("✅ Block Added (Backend)\nBlock #" + data.index);
+
+    loadLedger(); // refresh ledger
 });
 
 
@@ -77,31 +86,45 @@ verInput.addEventListener("change", e => {
 });
 
 async function verifyFile(file) {
-    const hash = await db.hashFile(file);
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-    const result = db.findByDocHash(hash);
+    const res = await fetch("http://127.0.0.1:5000/verify", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ hash })
+    });
 
-    if (result.length > 0) {
-        alert("✅ Verified! Document exists in blockchain");
+    const data = await res.json();
+
+    if (data.found) {
+        alert("✅ Verified (Backend)");
     } else {
-        alert("❌ Not Verified (Tampered or not registered)");
+        alert("❌ Not Verified");
     }
 }
-// ================= EXPORT & CLEAR =================
 
+
+// ================= EXPORT =================
 const exportBtn = document.getElementById("exportBtn");
-const clearBtn = document.getElementById("clearChainBtn");
 
-// EXPORT JSON
-exportBtn.addEventListener("click", () => {
-    if (db.length === 0) {
+exportBtn.addEventListener("click", async () => {
+    const res = await fetch("http://127.0.0.1:5000/chain");
+    const data = await res.json();
+
+    if (data.length === 0) {
         alert("No blocks to export!");
         return;
     }
 
-    const data = db.exportJSON();
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json"
+    });
 
-    const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
@@ -112,19 +135,21 @@ exportBtn.addEventListener("click", () => {
     URL.revokeObjectURL(url);
 });
 
-// CLEAR CHAIN
-clearBtn.addEventListener("click", () => {
-    if (db.length === 0) {
-        alert("No blocks to clear!");
-        return;
-    }
 
-    const confirmClear = confirm("Are you sure you want to delete all blocks?");
+// ================= CLEAR =================
+const clearBtn = document.getElementById("clearChainBtn");
 
-    if (confirmClear) {
-        db.clear();
-        alert("Blockchain cleared!");
-    }
+clearBtn.addEventListener("click", async () => {
+    const confirmClear = confirm("Delete all blocks?");
+    if (!confirmClear) return;
+
+    await fetch("http://127.0.0.1:5000/clear", {
+        method: "POST"
+    });
+
+    alert("Blockchain cleared (Backend)");
+
+    loadLedger();
 });
 
 
@@ -134,7 +159,10 @@ const emptyMsg = document.getElementById("chainEmpty");
 const blockCount = document.getElementById("headerBlockCount");
 const docCount = document.getElementById("headerDocCount");
 
-function renderLedger(chain) {
+async function loadLedger() {
+    const res = await fetch("http://127.0.0.1:5000/chain");
+    const chain = await res.json();
+
     blockCount.innerText = chain.length;
     docCount.innerText = chain.length;
 
@@ -166,6 +194,5 @@ function renderLedger(chain) {
     });
 }
 
-// 🔥 IMPORTANT (connect blockchain to UI)
-db.onChange(renderLedger);
-renderLedger(db.chain);
+// Load on start
+loadLedger();
