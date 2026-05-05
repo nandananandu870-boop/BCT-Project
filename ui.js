@@ -3,17 +3,16 @@
 // ================= REGISTER =================
 const regInput = document.getElementById("registerFileInput");
 const regDrop = document.getElementById("registerDrop");
+const regFileCard = document.getElementById("registerFileCard");
+const regFileName = document.getElementById("regFileName");
+const regFileMeta = document.getElementById("regFileMeta");
 const regHash = document.getElementById("regHashValue");
 const regBtn = document.getElementById("registerBtn");
 
 let currentHash = null;
 
-// Click to open file
-regDrop.addEventListener("click", () => regInput.click());
-
-// Drag & drop
+// Drag drop only (NO click)
 regDrop.addEventListener("dragover", e => e.preventDefault());
-
 regDrop.addEventListener("drop", e => {
     e.preventDefault();
     handleFile(e.dataTransfer.files[0]);
@@ -24,11 +23,15 @@ regInput.addEventListener("change", e => {
     handleFile(e.target.files[0]);
 });
 
-// Generate hash
+// Handle file
 async function handleFile(file) {
     if (!file) return;
 
-    regHash.innerText = "Computing...";
+    regFileCard.classList.remove("hidden");
+    regFileName.innerText = file.name;
+    regFileMeta.innerText = (file.size / 1024).toFixed(2) + " KB";
+
+    regHash.innerText = "⏳ Computing...";
 
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
@@ -41,90 +44,109 @@ async function handleFile(file) {
     regBtn.disabled = false;
 }
 
-// Register block (BACKEND)
+// REGISTER BUTTON
 regBtn.addEventListener("click", async () => {
-    if (!currentHash) return;
+    if (!currentHash) {
+        alert("⚠️ Upload file first!");
+        return;
+    }
 
-    const owner = document.getElementById("regOwner").value;
-    const desc = document.getElementById("regDesc").value;
+    regBtn.innerText = "⏳ Processing...";
+    regBtn.disabled = true;
 
-    const res = await fetch("http://127.0.0.1:5000/add", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            docHash: currentHash,
-            owner: owner,
-            description: desc
-        })
-    });
+    try {
+        const owner = document.getElementById("regOwner").value;
+        const desc = document.getElementById("regDesc").value;
 
-    const data = await res.json();
+        const res = await fetch("http://127.0.0.1:5000/add", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                docHash: currentHash,
+                owner,
+                description: desc
+            })
+        });
 
-    alert("✅ Block Added (Backend)\nBlock #" + data.index);
+        const data = await res.json();
 
-    loadLedger(); // refresh ledger
+        regBtn.innerText = "✅ Added!";
+        loadLedger();
+
+    } catch (err) {
+        console.error(err);
+        regBtn.innerText = "❌ Error";
+    }
+
+    setTimeout(() => {
+        regBtn.innerText = "Write Block to Chain";
+        regBtn.disabled = false;
+    }, 2000);
 });
 
 
 // ================= VERIFY =================
 const verInput = document.getElementById("verifyFileInput");
 const verDrop = document.getElementById("verifyDrop");
+const verifyBtn = document.getElementById("verifyBtn");
 
-verDrop.addEventListener("click", () => verInput.click());
+let verifyHash = null;
 
+// ❌ REMOVE CLICK EVENT HERE (IMPORTANT)
+
+// Drag drop only
 verDrop.addEventListener("dragover", e => e.preventDefault());
 
 verDrop.addEventListener("drop", e => {
     e.preventDefault();
-    verifyFile(e.dataTransfer.files[0]);
+    processVerifyFile(e.dataTransfer.files[0]);
 });
 
+// File select
 verInput.addEventListener("change", e => {
-    verifyFile(e.target.files[0]);
+    processVerifyFile(e.target.files[0]);
 });
 
-async function verifyFile(file) {
+async function processVerifyFile(file) {
+    if (!file) return;
+
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    verifyHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+    verifyBtn.disabled = false;
+}
+
+// VERIFY BUTTON
+verifyBtn.addEventListener("click", async () => {
+    if (!verifyHash) {
+        alert("Upload file first!");
+        return;
+    }
 
     const res = await fetch("http://127.0.0.1:5000/verify", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ hash })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ hash: verifyHash })
     });
 
     const data = await res.json();
 
     if (data.found) {
-        alert("✅ Verified (Backend)");
+        alert("✅ Verified!");
     } else {
         alert("❌ Not Verified");
     }
-}
+});
 
 
 // ================= EXPORT =================
-const exportBtn = document.getElementById("exportBtn");
-
-exportBtn.addEventListener("click", async () => {
+document.getElementById("exportBtn").addEventListener("click", async () => {
     const res = await fetch("http://127.0.0.1:5000/chain");
     const data = await res.json();
 
-    if (data.length === 0) {
-        alert("No blocks to export!");
-        return;
-    }
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json"
-    });
-
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
@@ -137,51 +159,33 @@ exportBtn.addEventListener("click", async () => {
 
 
 // ================= CLEAR =================
-const clearBtn = document.getElementById("clearChainBtn");
-
-clearBtn.addEventListener("click", async () => {
-    const confirmClear = confirm("Delete all blocks?");
-    if (!confirmClear) return;
-
-    await fetch("http://127.0.0.1:5000/clear", {
-        method: "POST"
-    });
-
-    alert("Blockchain cleared (Backend)");
-
+document.getElementById("clearChainBtn").addEventListener("click", async () => {
+    await fetch("http://127.0.0.1:5000/clear", {method: "POST"});
+    alert("Blockchain cleared!");
     loadLedger();
 });
 
 
 // ================= LEDGER =================
-const chainContainer = document.getElementById("chainBlocks");
-const emptyMsg = document.getElementById("chainEmpty");
-const blockCount = document.getElementById("headerBlockCount");
-const docCount = document.getElementById("headerDocCount");
+const chainBlocks = document.getElementById("chainBlocks");
+const chainEmpty = document.getElementById("chainEmpty");
 
 async function loadLedger() {
     const res = await fetch("http://127.0.0.1:5000/chain");
     const chain = await res.json();
 
-    blockCount.innerText = chain.length;
-    docCount.innerText = chain.length;
-
     if (chain.length === 0) {
-        emptyMsg.style.display = "block";
-        chainContainer.innerHTML = "";
+        chainEmpty.style.display = "block";
+        chainBlocks.innerHTML = "";
         return;
     }
 
-    emptyMsg.style.display = "none";
-    chainContainer.innerHTML = "";
+    chainEmpty.style.display = "none";
+    chainBlocks.innerHTML = "";
 
     chain.forEach(block => {
         const div = document.createElement("div");
-
-        div.style.border = "1px solid #444";
-        div.style.padding = "10px";
-        div.style.margin = "10px";
-        div.style.borderRadius = "8px";
+        div.className = "ledger-block";
 
         div.innerHTML = `
             <strong>Block #${block.index}</strong><br>
@@ -190,9 +194,9 @@ async function loadLedger() {
             Time: ${new Date(block.timestamp).toLocaleString()}
         `;
 
-        chainContainer.appendChild(div);
+        chainBlocks.appendChild(div);
     });
 }
 
-// Load on start
+// Load at start
 loadLedger();
